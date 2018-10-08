@@ -1,0 +1,37 @@
+---
+# Purpose:
+# To deploy telegraf to all instances defined in the hosts folder and ensure that they are
+# added to the main_dash.js file. 
+
+# Hosts must be defined in a separate file. When running this playbook, use option -i
+# and define the host file location
+- hosts: all 
+  become: true
+  tasks:
+      
+  - name: Add the RPM to the destination 
+    copy:
+      src: "{{ package_name }}"
+      dest: "{{ package_dest }}"
+    when: ansible_os_family == "RedHat"
+      
+  - name: Install service [RHEL/Centos]
+    yum:
+      name: "{{ package_dest }}"
+      state: "{{ state }}"
+    when: ansible_os_family == "RedHat"
+    ignore_errors: true
+
+  - name: set the template config
+    template:
+      src: "{{ config_template }}"
+      dest: "{{ config_location }}"
+    notify:
+      - "restart"
+      - "enable"
+
+  import_playbook:
+    - set_grafana_scripts.yml
+
+  handlers:
+    - import_tasks: handlers.yml

@@ -1,0 +1,15 @@
+---
+- hosts: localhost
+  connection: local
+  
+  tasks:
+
+  - name: set the main dashboard
+    template:
+      src: /templates/main_dash.js.j2
+      dest: /usr/share/grafana/public/dashboards/main_dash.js
+
+  - name: set the Full View dash
+    template:
+      src: /templates/full_view.js.j2
+      dest: /usr/share/grafana/public/dashboards/full_view.js

@@ -1,0 +1,312 @@
+
+
+
+var window, document, ARGS, $, jQuery, moment, kbn;
+
+
+
+var servers = {
+    {% for host in groups['instances'] %}
+        "{{ item.hostNickName }}": {
+            "hostname": "{{ item.hostname }}",
+            "tags": ["{{ item.tag0 }}", "{{ item.tag1 }}"],
+            "procstat": "{{ item.procstat }}",
+            "disks": ["{{ item.disk0 }}","{{ item.disk1 }}"]
+        },
+    {% endfor %}
+}
+
+var tag = "";
+
+if(!_.isUndefined(ARGS.tag)) {
+    tag = ARGS.tag;
+}
+
+var dashboard = {};
+dashboard.panels = [];
+dashboard.editable = false;
+dashboard.tite = tag + " status";
+dashboard.style = "dark";
+dashboard.refresh = false;
+dashboard.time = {
+    "from": "now-5m",
+    "to": "now"
+};
+dashboard.timepicker = {
+    "refreshintervals": [
+        "5s",
+        "10s",
+        "30s",
+        "1m",
+        "5m",
+        "15m",
+        "30m",
+        "1h",
+        "2h",
+        "1d",
+    ],
+    "time_options": [
+        "5m",
+        "15m",
+        "1h",
+        "6h",
+        "12h",
+        "24h",
+        "2d",
+        "7d",
+        "30d"
+    ]
+};
+dashboard.panels.push({
+    "type": "text",
+    "title": "",
+    "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 4
+    },
+    "id": 0,
+    "mode": "html",
+    "content": "<h1 style=\"color: #afceff; text-align: center; font-size: 8em\"><a href=\"\" style=\"text-decoration:none\">Return to Main Page</a></h1>",
+    "links": [],
+    "transparent": true
+});
+
+// Positional variables
+var x = 0;
+var y = 4;
+var id = 1;
+var h = 4;
+var check = 0;
+if(tag == "Main") {
+    h = 3
+}
+for (var server in servers) {
+    if(servers[server].tags.includes(tag)) {
+        check++;
+    }
+}
+if( check > 25) {
+    h = 3;
+} else {
+    h = 4;
+}
+for( var server in servers) {
+    if(servers[server].tags.includes(tag)){
+
+        var links = [];
+        var targets = [];
+
+        // This will allow the user to dig further into server metrics. Also scripted and requires parameters passed
+        links.push({
+            "dashUri": "db/"+ server +" dash",
+            "dashboard": server +" Dash",
+            "params": "host="+ servers[server].hostname + "&procstat="+servers[server].procstat+"&disk0="+servers[server].disks[0]+"&disk1="+servers[server].disks[1]+"&orgId=1",
+            "targetBlank": true,
+            "title": "Full View",
+            "type": "absolute",
+            "url": ""
+        });
+
+        //        
+        targets.push({
+            "aggregation": "Avg",
+            "alias": "CPU",
+            "crit": 90,
+            "decimals": 2,
+            "displayAliasType": "Warning / Critical",
+            "displayType": "Regular",
+            "displayValueWithAlias": "When Alias Displayed",
+            "groupBy": [
+                {
+                    "params": [
+                    "$__interval"
+                ],
+                "type": "time"
+                },
+                {
+                    "params": [
+                    "null"
+                ],
+                "type": "fill"
+              }
+            ],
+            "measurement": "CPU",
+            "orderByTime": "ASC",
+            "policy": "default",
+            "query": "SELECT mean(\"usage_active\") FROM \"cpu\" WHERE (\"host\" = '"+servers[server].hostname+"') AND $timeFilter GROUP BY time($interval) fill(null)",
+            "rawQuery": true,
+            "refId": "A",
+            "resultFormat": "time_series",
+            "select": [
+                [
+                {
+                  "params": [
+                    "usage_active"
+                  ],
+                  "type": "field"
+                },
+                {
+                "params": [],
+                  "type": "mean"
+                }
+              ]
+            ],
+            "tags": [
+              {
+                "key": "host",
+                "operator": "=",
+                "value": servers[server].hostname,
+              }
+            ],
+            "units": "percent",
+            "valueHandler": "Number Threshold",
+            "warn": 80
+            }); 
+
+        // Status metrics
+        targets.push({
+            "aggregation": "Avg",
+            "alias": "Memory",
+            "crit": 90,
+            "decimals": 2,
+            "displayAliasType": "Warning / Critical",
+            "displayType": "Regular",
+            "displayValueWithAlias": "When Alias Displayed",
+            "groupBy": [
+              {
+                "params": [
+                  "$__interval"
+                ],
+                "type": "time"
+              },
+              {
+                "params": [
+                  "null"
+                ],
+                "type": "fill"
+              }
+            ],
+            "orderByTime": "ASC",
+            "policy": "default",
+            "query": "SELECT mean(\"used_percent\") as \"Memory\" FROM \"mem\" WHERE host = '"+servers[server].hostname+"' AND $timeFilter GROUP BY time($interval) fill(null)",
+            "rawQuery": true,
+            "refId": "B",
+            "resultFormat": "time_series",
+            "select": [
+              [
+                {
+                  "params": [
+                    "value"
+                  ],
+                  "type": "field"
+                },
+                {
+                  "params": [],
+                  "type": "mean"
+                }
+              ]
+            ],
+            "tags": [],
+            "units": "percent",
+            "valueHandler": "Number Threshold",
+            "warn": 80
+          });
+        
+        targets.push({
+            "aggregation": "Avg",
+            "alias": "Disk",
+            "crit": 90,
+            "decimals": 2,
+            "displayAliasType": "Warning / Critical",
+            "displayType": "Regular",
+            "displayValueWithAlias": "When Alias Displayed",
+            "groupBy": [
+              {
+                "params": [
+                  "$__interval"
+                ],
+                "type": "time"
+              },
+              {
+                "params": [
+                  "null"
+                ],
+                "type": "fill"
+              }
+            ],
+            "orderByTime": "ASC",
+            "policy": "default",
+            "query": "SELECT mean(\"used_percent\") as \"Disk\" FROM \"disk\" WHERE host = '"+servers[server].hostname+"' AND \"path\" = '"+servers[server].disks[0]+"' AND $timeFilter GROUP BY time($interval) fill(null)",
+            "rawQuery": true,
+            "refId": "C",
+            "resultFormat": "time_series",
+            "select": [
+              [
+                {
+                  "params": [
+                    "value"
+                  ],
+                  "type": "field"
+                },
+                {
+                  "params": [],
+                  "type": "mean"
+                }
+              ]
+            ],
+            "tags": [],
+            "units": "percent",
+            "valueHandler": "Number Threshold",
+            "warn": 80
+          });
+        
+        // Quite small once everything is parametrized. 
+        dashboard.panels.push({
+            "clusterName": server,
+            "colorMode": "Panel",
+            "colors": {
+              "crit": "rgba(245, 54, 54, 0.9)",
+              "disable": "rgba(128, 128, 128, 0.9)",
+              "ok": "rgba(50, 128, 45, 0.9)",
+              "warn": "rgba(237, 129, 40, 0.9)"
+            },
+            "cornerRadius": 0,
+            "datasource": "influxdb-sde",
+            "server": server,
+            "flipCard": false,
+            "flipTime": 5,
+            "fontFormat": "Regular",
+            "gridPos": {
+              "h": h,
+              "w": 2,
+              "x": x,
+              "y": y
+            },
+            "hideTimeOverride": true,
+            "id": id,
+            "isAutoScrollOnOverflow": false,
+            "isGrayOnNoData": true,
+            "isHideAlertsOnDisable": false,
+            "isIgnoreOKColors": false,
+            "links": links,
+            "targets": targets,
+            "timeFrom": "1m",
+            "title": "",
+            "type": "vonage-status-panel"
+        });
+        x+=2;
+        id++;
+
+        // Once 12 panels are added onto a row, this will shift the row down
+        if(x==24) {
+            y+=3;
+            x=0;
+        }
+
+    } 
+}
+
+return dashboard;
+
