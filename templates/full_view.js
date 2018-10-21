@@ -49,7 +49,7 @@ var titles = [
 ];
  
 //Used for getting hosts that have procstat information
-var tester = RegExp(/(lb)|(dev)[145]|(ats)|(wiki)|(influx)|(jira)/);
+var tester = RegExp(/(lb)|(ats)|(wiki)|(influx)|(jira)/);
  
 //Setting the various yaxes of the graphs. These determine the what values are shown.
 //First in the list is the left axes that is the one typically shown, the second is 
